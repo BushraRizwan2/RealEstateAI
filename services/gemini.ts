@@ -6,7 +6,23 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const GEMINI_MODEL = 'gemini-3-pro-preview';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiClient: GoogleGenAI | null = null;
+
+function getAiClient(): GoogleGenAI {
+  if (!aiClient) {
+    let apiKey = '';
+    try {
+       apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    } catch (e) {
+       // Catch error if process is undefined
+    }
+    if (!apiKey) {
+      console.warn("Gemini API key is not configured. AI Analysis features will require configuring the key.");
+    }
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+  return aiClient;
+}
 
 export interface PropertyAnalysis {
   title: string;
@@ -33,7 +49,7 @@ const RESPONSE_SCHEMA = {
 };
 
 export async function analyzeProperty(fileBase64: string, mimeType: string): Promise<PropertyAnalysis> {
-  
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
