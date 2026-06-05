@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 const GEMINI_MODEL = 'gemini-3-pro-preview';
 
@@ -16,8 +16,13 @@ function getAiClient(): GoogleGenAI {
     } catch (e) {
        // Catch error if process is undefined
     }
+    
+    if (apiKey === 'undefined') {
+       apiKey = '';
+    }
+
     if (!apiKey) {
-      console.warn("Gemini API key is not configured. AI Analysis features will require configuring the key.");
+      throw new Error("Gemini API key is not configured. Please supply a valid GEMINI_API_KEY in the app settings to use AI listing generation features.");
     }
     aiClient = new GoogleGenAI({ apiKey });
   }
@@ -35,15 +40,15 @@ export interface PropertyAnalysis {
 }
 
 const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
+  type: "OBJECT",
   properties: {
-    title: { type: Type.STRING, description: "A catchy 5-10 word title for the listing" },
-    description: { type: Type.STRING, description: "A professional 2-3 sentence marketing description" },
-    priceEstimate: { type: Type.STRING, description: "Estimated price range (e.g. '$500,000 - $550,000')" },
-    type: { type: Type.STRING, enum: ["Sale", "Rent"] },
-    category: { type: Type.STRING, enum: ["House", "Apartment", "Commercial", "Land"] },
-    amenities: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 5 visible features" },
-    condition: { type: Type.STRING, enum: ["New", "Excellent", "Good", "Fair"] }
+    title: { type: "STRING", description: "A catchy 5-10 word title for the listing" },
+    description: { type: "STRING", description: "A professional 2-3 sentence marketing description" },
+    priceEstimate: { type: "STRING", description: "Estimated price range (e.g. '$500,000 - $550,000')" },
+    type: { type: "STRING", enum: ["Sale", "Rent"] },
+    category: { type: "STRING", enum: ["House", "Apartment", "Commercial", "Land"] },
+    amenities: { type: "ARRAY", items: { type: "STRING" }, description: "List of 5 visible features" },
+    condition: { type: "STRING", enum: ["New", "Excellent", "Good", "Fair"] }
   },
   required: ["title", "description", "priceEstimate", "type", "category", "amenities", "condition"]
 };
