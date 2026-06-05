@@ -46,18 +46,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const totalValue = activeProperties.reduce((acc, curr) => {
             const priceStr = curr.priceEstimate.split('-')[0].replace(/[^0-9.]/g, '');
             let val = parseFloat(priceStr);
-            if (curr.priceEstimate.includes('M')) val *= 1000000;
-            else if (curr.priceEstimate.includes('k')) val *= 1000;
+            if (curr.priceEstimate.toUpperCase().includes('M')) val *= 1000000;
+            else if (curr.priceEstimate.toUpperCase().includes('K')) val *= 1000;
             if (curr.priceEstimate.includes('/mo')) val = val * 12 * 20; 
             return acc + (val || 0);
         }, 0);
+
+        const activeRentals = activeProperties.filter(p => p.type === 'Rent');
+        const rentalRevenue = activeRentals.reduce((acc, curr) => {
+            const priceStr = curr.priceEstimate.split('-')[0].replace(/[^0-9.]/g, '');
+            return acc + (parseFloat(priceStr) || 0);
+        }, 0);
+
+        const activeSales = activeProperties.filter(p => p.type === 'Sale');
+        const salesRevenue = activeSales.reduce((acc, curr) => {
+            const priceStr = curr.priceEstimate.split('-')[0].replace(/[^0-9.]/g, '');
+            let val = parseFloat(priceStr) || 0;
+            if (curr.priceEstimate.toUpperCase().includes('M')) val *= 1000000;
+            else if (curr.priceEstimate.toUpperCase().includes('K')) val *= 1000;
+            return acc + val;
+        }, 0);
+
+        // assume standard 2.5% commission on listing sales, closing cycle estimated at 12 months average
+        const salesRevenueMonthly = (salesRevenue * 0.025) / 12;
+
+        const pendingNegotiationLeads = leads.filter(l => l.status === 'Negotiation');
+        const avgActiveSalePrice = activeSales.length > 0 ? (salesRevenue / activeSales.length) : 650000;
+        // assume leads under negotiation have a 60% probability of closing with a 2.5% commission, projected over 3 months
+        const negotiationRevenueMonthly = pendingNegotiationLeads.length * (avgActiveSalePrice * 0.025 * 0.60) / 3;
+
+        const monthlyProjectedRevenue = rentalRevenue + salesRevenueMonthly + negotiationRevenueMonthly;
 
         return {
             totalListings: properties.length,
             activeListings: activeProperties.length,
             totalLeads: leads.length,
             portfolioValue: totalValue,
-            pendingDeals: leads.filter(l => l.status === 'Negotiation').length
+            pendingDeals: pendingNegotiationLeads.length,
+            monthlyProjectedRevenue,
+            rentalRevenue,
+            salesRevenueMonthly,
+            negotiationRevenueMonthly
         };
     }, [properties, leads]);
 
@@ -98,10 +127,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* Hero Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Portfolio Value', value: formatCurrency(stats.portfolioValue), icon: CurrencyDollarIcon, color: 'blue', trend: '+12.5%', target: 'listings' },
-                    { label: 'Active Listings', value: stats.activeListings, sub: `/ ${stats.totalListings} total`, icon: BuildingOfficeIcon, color: 'purple', trend: null, target: 'listings' },
-                    { label: 'Total Leads', value: stats.totalLeads, icon: UserGroupIcon, color: 'emerald', trend: '3 New', target: 'crm' },
-                    { label: 'Pending Deals', value: stats.pendingDeals, icon: KeyIcon, color: 'amber', trend: null, target: 'crm' }
+                    { 
+                        label: 'Active Listings', 
+                        value: stats.activeListings, 
+                        sub: `/ ${stats.totalListings} total properties`, 
+                        icon: BuildingOfficeIcon, 
+                        color: 'purple', 
+                        trend: 'Active',
+                        target: 'listings' 
+                    },
+                    { 
+                        label: 'Total Leads', 
+                        value: stats.totalLeads, 
+                        sub: 'Registered prospects', 
+                        icon: UserGroupIcon, 
+                        color: 'emerald', 
+                        trend: '3 New',
+                        target: 'crm' 
+                    },
+                    { 
+                        label: 'Pending Negotiations', 
+                        value: stats.pendingDeals, 
+                        sub: 'High-intent pipeline', 
+                        icon: ArrowTrendingUpIcon, 
+                        color: 'amber', 
+                        trend: 'In Progress',
+                        target: 'crm' 
+                    },
+                    { 
+                        label: 'Monthly Projected Revenue', 
+                        value: formatCurrency(stats.monthlyProjectedRevenue), 
+                        sub: `Rent: ${formatCurrency(stats.rentalRevenue)} | Sales: ${formatCurrency(stats.salesRevenueMonthly)}`, 
+                        icon: CurrencyDollarIcon, 
+                        color: 'blue', 
+                        trend: 'Dynamic',
+                        target: 'reports' 
+                    }
                 ].map((stat, idx) => (
                     <button 
                         key={stat.label} 
@@ -113,24 +174,74 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ${stat.color === 'amber' ? 'bg-amber-50/80 border-amber-100 hover:bg-amber-50 hover:border-amber-300 hover:shadow-amber-500/20' : ''}
                         `}
                     >
-                        <div className={`absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-4 -translate-y-4`}>
-                            <stat.icon className={`w-24 h-24 text-${stat.color}-600/20`} />
+                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-4 -translate-y-4">
+                            <stat.icon className={`w-24 h-24 ${
+                                stat.color === 'blue' ? 'text-blue-600/20' : ''
+                            }${
+                                stat.color === 'purple' ? 'text-purple-600/20' : ''
+                            }${
+                                stat.color === 'emerald' ? 'text-emerald-600/20' : ''
+                            }${
+                                stat.color === 'amber' ? 'text-amber-600/20' : ''
+                            }`} />
                         </div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
-                            <div className={`p-2.5 bg-white rounded-xl text-${stat.color}-600 group-hover:scale-110 transition-transform duration-300 shadow-sm ring-1 ring-${stat.color}-100`}>
+                            <div className={`p-2.5 bg-white rounded-xl group-hover:scale-110 transition-transform duration-300 shadow-sm ring-1 ${
+                                stat.color === 'blue' ? 'text-blue-600 ring-blue-100' : ''
+                            }${
+                                stat.color === 'purple' ? 'text-purple-600 ring-purple-100' : ''
+                            }${
+                                stat.color === 'emerald' ? 'text-emerald-600 ring-emerald-100' : ''
+                            }${
+                                stat.color === 'amber' ? 'text-amber-600 ring-amber-100' : ''
+                            }`}>
                                  <stat.icon className="w-6 h-6" />
                             </div>
                             {stat.trend && (
-                                <span className={`flex items-center gap-1 text-xs font-bold text-${stat.color}-700 bg-white/60 px-2 py-1 rounded-full group-hover:bg-white`}>
-                                    {stat.trend.includes('%') && <ArrowTrendingUpIcon className="w-3 h-3" />}
+                                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full group-hover:bg-white ${
+                                    stat.color === 'blue' ? 'text-blue-700 bg-blue-100/60' : ''
+                                }${
+                                    stat.color === 'purple' ? 'text-purple-700 bg-purple-100/60' : ''
+                                }${
+                                    stat.color === 'emerald' ? 'text-emerald-700 bg-emerald-100/60' : ''
+                                }${
+                                    stat.color === 'amber' ? 'text-amber-700 bg-amber-100/60' : ''
+                                }`}>
+                                    {stat.color === 'blue' && <ArrowTrendingUpIcon className="w-3 h-3" />}
                                     {stat.trend}
                                 </span>
                             )}
                         </div>
-                        <div className={`text-sm font-medium mb-1 relative z-10 text-${stat.color}-900/60`}>{stat.label}</div>
+                        <div className={`text-sm font-medium mb-1 relative z-10 ${
+                            stat.color === 'blue' ? 'text-blue-900/60' : ''
+                        }${
+                            stat.color === 'purple' ? 'text-purple-900/60' : ''
+                        }${
+                            stat.color === 'emerald' ? 'text-emerald-900/60' : ''
+                        }${
+                            stat.color === 'amber' ? 'text-amber-900/60' : ''
+                        }`}>{stat.label}</div>
                         <div className="flex items-baseline gap-2 relative z-10">
-                            <div className={`text-2xl font-bold tracking-tight text-${stat.color}-900`}>{stat.value}</div>
-                            {stat.sub && <span className={`text-xs font-medium text-${stat.color}-700/60`}>{stat.sub}</span>}
+                            <div className={`text-2xl font-bold tracking-tight ${
+                                stat.color === 'blue' ? 'text-blue-900' : ''
+                            }${
+                                stat.color === 'purple' ? 'text-purple-900' : ''
+                            }${
+                                stat.color === 'emerald' ? 'text-emerald-900' : ''
+                            }${
+                                stat.color === 'amber' ? 'text-amber-900' : ''
+                            }`}>{stat.value}</div>
+                            {stat.sub && (
+                                <span className={`text-xs font-medium truncate max-w-full ${
+                                    stat.color === 'blue' ? 'text-blue-700/80' : ''
+                                }${
+                                    stat.color === 'purple' ? 'text-purple-700/80' : ''
+                                }${
+                                    stat.color === 'emerald' ? 'text-emerald-700/80' : ''
+                                }${
+                                    stat.color === 'amber' ? 'text-amber-700/80' : ''
+                                }`}>{stat.sub}</span>
+                            )}
                         </div>
                     </button>
                 ))}

@@ -40,6 +40,40 @@ export interface Lead {
     owner?: string;
 }
 
+interface EmailTemplate {
+    id: string;
+    name: string;
+    subject: string;
+    body: string;
+}
+
+const EMAIL_TEMPLATES: EmailTemplate[] = [
+    {
+        id: 'welcome',
+        name: '👋 Welcome & Introduction',
+        subject: 'Welcome to EstateAI - Your Property Search',
+        body: 'Hello {Name},\n\nThank you for choosing EstateAI. I see you are in the market as a {Type} with a budget of {Budget}. I would love to connect for a quick 5-minute discovery call to discuss your ideal options.\n\nDo you have any availability this week?\n\nBest regards,\n{AgentName}'
+    },
+    {
+        id: 'match',
+        name: '🏠 Property Match Alerts',
+        subject: 'New property matches for your budget {Budget}',
+        body: 'Hello {Name},\n\nWe just listed several new off-market properties that match your profile as a {Type} with a budget of {Budget}.\n\nLet me know if you would like to receive the private digital brochures or schedule a tour.\n\nBest regards,\n{AgentName}'
+    },
+    {
+        id: 'negotiation',
+        name: '📝 Documentation Review',
+        subject: 'Proposed contract draft & next steps',
+        body: 'Hello {Name},\n\nFollowing our negotiation stage, I have compiled the essential documentation for your review.\n\nPlease check the details, and let me know if we are good to proceed with signing, or if there are any clauses you would like to refine.\n\nBest regards,\n{AgentName}'
+    },
+    {
+        id: 'followup',
+        name: '🎯 Lead Follow-up',
+        subject: 'Checking in on your property search',
+        body: 'Hello {Name},\n\nI wanted to follow up on our last conversation. Let me know if there are any changes to your criteria as a {Type} or your budget of {Budget}.\n\nI am always here to search and source the best opportunities for you.\n\nBest regards,\n{AgentName}'
+    }
+];
+
 interface CRMProps {
     leads: Lead[];
     onUpdateStatus: (id: string, status: Lead['status']) => void;
@@ -48,6 +82,7 @@ interface CRMProps {
     onBulkDelete?: (ids: string[]) => void;
     onBulkStatusChange?: (ids: string[], status: Lead['status']) => void;
     onBulkAssignOwner?: (ids: string[], owner: string) => void;
+    onRecordCommunication?: (id: string, subject: string) => void;
     agentName?: string;
 }
 
@@ -59,6 +94,7 @@ export const CRM: React.FC<CRMProps> = ({
     onBulkDelete,
     onBulkStatusChange,
     onBulkAssignOwner,
+    onRecordCommunication,
     agentName
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'analytics' | 'kanban'>('list');
@@ -79,6 +115,13 @@ export const CRM: React.FC<CRMProps> = ({
     
     // Notification / Email Service State
     const [notification, setNotification] = useState<{show: boolean, title: string, message: string} | null>(null);
+
+    // Lead Detail Modal & Email Templates State
+    const [viewingLeadDetails, setViewingLeadDetails] = useState<Lead | null>(null);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('welcome');
+    const [emailSubject, setEmailSubject] = useState('');
+    const [emailBody, setEmailBody] = useState('');
+    const [detailTab, setDetailTab] = useState<'info' | 'email'>('info');
 
     // New Lead Form State
     const [formData, setFormData] = useState({
@@ -125,6 +168,21 @@ export const CRM: React.FC<CRMProps> = ({
             return () => clearTimeout(timer);
         }
     }, [notification]);
+
+    useEffect(() => {
+        if (viewingLeadDetails) {
+            const template = EMAIL_TEMPLATES.find(t => t.id === selectedTemplateId) || EMAIL_TEMPLATES[0];
+            const replacer = (text: string) => {
+                return text
+                    .replace(/{Name}/g, viewingLeadDetails.name)
+                    .replace(/{Type}/g, viewingLeadDetails.type.toLowerCase())
+                    .replace(/{Budget}/g, viewingLeadDetails.budget)
+                    .replace(/{AgentName}/g, viewingLeadDetails.owner || agentName || 'Agent Smith');
+            };
+            setEmailSubject(replacer(template.subject));
+            setEmailBody(replacer(template.body));
+        }
+    }, [selectedTemplateId, viewingLeadDetails, agentName]);
 
     const sendEmail = (to: string, subject: string, body: string) => {
         // Simulate API call to email service with detailed logging
@@ -467,6 +525,213 @@ export const CRM: React.FC<CRMProps> = ({
                 </div>
             )}
 
+            {/* Lead Detail & Communications Modal */}
+            {viewingLeadDetails && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col h-[650px] animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-start shrink-0">
+                            <div className="flex gap-4 items-center">
+                                <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center text-xl font-bold text-blue-700 shadow-sm border border-blue-200">
+                                    {viewingLeadDetails.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xl font-extrabold text-slate-900 leading-none">{viewingLeadDetails.name}</h3>
+                                        <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border ${getStatusColor(viewingLeadDetails.status)}`}>
+                                            {viewingLeadDetails.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 font-medium mt-1.5 flex items-center gap-1.5">
+                                        <span>💼 Agent: <strong className="text-slate-700">{viewingLeadDetails.owner || 'Unassigned'}</strong></span>
+                                        <span className="text-slate-300">•</span>
+                                        <span>🎯 Type: <strong className="text-slate-700">{viewingLeadDetails.type}</strong></span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setViewingLeadDetails(null)} 
+                                className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* View Tabs */}
+                        <div className="flex border-b border-slate-100 px-6 shrink-0 bg-slate-50/20">
+                            <button 
+                                onClick={() => setDetailTab('info')} 
+                                className={`py-3 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${detailTab === 'info' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                            >
+                                📋 Lead Overview & Notes
+                            </button>
+                            <button 
+                                onClick={() => setDetailTab('email')} 
+                                className={`py-3 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${detailTab === 'email' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                            >
+                                ✉️ Pre-defined Email Templates
+                            </button>
+                        </div>
+
+                        {/* Modal Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-50/30">
+                            {detailTab === 'info' ? (
+                                <div className="space-y-6">
+                                    {/* Profile Info Grid */}
+                                    <div className="grid grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Email Address</label>
+                                            <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                                                <EnvelopeIcon className="w-4 h-4 text-slate-400" />
+                                                <span>{viewingLeadDetails.email}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Phone Number</label>
+                                            <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                                                <PhoneIcon className="w-4 h-4 text-slate-400" />
+                                                <span>{viewingLeadDetails.phone}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Financial Budget</label>
+                                            <div className="text-sm font-mono font-bold text-slate-800 flex items-center gap-1.5">
+                                                <CurrencyDollarIcon className="w-4 h-4 text-emerald-500" />
+                                                <span>{viewingLeadDetails.budget}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Joined Date</label>
+                                            <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                                                <ClockIcon className="w-4 h-4 text-slate-400" />
+                                                <span>{new Date(viewingLeadDetails.dateAdded).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lifecycle Stage</label>
+                                            <select 
+                                                value={viewingLeadDetails.status} 
+                                                onChange={(e) => {
+                                                    handleStatusChange(viewingLeadDetails, e.target.value as Lead['status']);
+                                                    setViewingLeadDetails(prev => prev ? { ...prev, status: e.target.value as Lead['status'] } : null);
+                                                }} 
+                                                className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${getStatusColor(viewingLeadDetails.status)}`}
+                                            >
+                                                {kanbanColumns.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned Agent</label>
+                                            <select 
+                                                value={viewingLeadDetails.owner || 'Unassigned'} 
+                                                onChange={(e) => {
+                                                    onBulkAssignOwner?.([viewingLeadDetails.id], e.target.value);
+                                                    setViewingLeadDetails(prev => prev ? { ...prev, owner: e.target.value } : null);
+                                                }} 
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-semibold focus:outline-none focus:border-blue-500 cursor-pointer hover:bg-slate-100 transition-colors"
+                                            >
+                                                <option value="Unassigned">Unassigned</option>
+                                                {[agentName || 'Agent Smith', 'Jane Doe', 'Alice Vance', 'Bob Miller'].map(name => (
+                                                    <option key={name} value={name}>{name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Notes Area */}
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Internal CRM Notes / Journal</h4>
+                                        <textarea 
+                                            value={viewingLeadDetails.notes || ''} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setViewingLeadDetails(prev => prev ? { ...prev, notes: val } : null);
+                                            }} 
+                                            placeholder="Type any details, interaction history, or client criteria here..." 
+                                            className="w-full h-32 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-blue-500 resize-none font-medium"
+                                        />
+                                        <div className="flex justify-end shrink-0">
+                                            <button 
+                                                onClick={() => {
+                                                    onUpdateNotes(viewingLeadDetails.id, viewingLeadDetails.notes || '');
+                                                    setNotification({
+                                                        show: true,
+                                                        title: 'Notes Saved',
+                                                        message: `Successfully synchronized updates for ${viewingLeadDetails.name}`
+                                                    });
+                                                }} 
+                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-md shadow-blue-500/10 transition-colors cursor-pointer"
+                                            >
+                                                Save Notes
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full items-stretch animate-in fade-in duration-300">
+                                    {/* Selector Column (Left) */}
+                                    <div className="md:col-span-1 space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 shrink-0">Templates</h4>
+                                        {EMAIL_TEMPLATES.map(template => {
+                                            const isSelected = selectedTemplateId === template.id;
+                                            return (
+                                                <button 
+                                                    key={template.id} 
+                                                    onClick={() => setSelectedTemplateId(template.id)}
+                                                    className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer ${isSelected ? 'border-blue-600 bg-blue-50/50 shadow-sm' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                                                >
+                                                    <span className="text-xs font-bold text-slate-950 flex items-center justify-between">
+                                                        <span>{template.name}</span>
+                                                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500 font-medium truncate max-w-full">{template.subject}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Live Form & Customizer Column (Right) */}
+                                    <div className="md:col-span-2 flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm max-h-[460px] overflow-y-auto font-sans">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Subject Draft</label>
+                                            <input 
+                                                type="text" 
+                                                value={emailSubject} 
+                                                onChange={(e) => setEmailSubject(e.target.value)} 
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-sans"
+                                            />
+                                        </div>
+
+                                        <div className="flex-1 flex flex-col min-h-0">
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Message Body</label>
+                                            <textarea 
+                                                value={emailBody} 
+                                                onChange={(e) => setEmailBody(e.target.value)} 
+                                                className="w-full flex-1 h-56 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-850 leading-relaxed font-semibold focus:outline-none focus:border-blue-500 focus:bg-white resize-none font-sans"
+                                            />
+                                        </div>
+
+                                        <div className="flex justify-end gap-2 pt-2 shrink-0 border-t border-slate-100">
+                                            <button 
+                                                onClick={() => {
+                                                    sendEmail(viewingLeadDetails.email, emailSubject, emailBody);
+                                                    onRecordCommunication?.(viewingLeadDetails.id, emailSubject);
+                                                    setViewingLeadDetails(null);
+                                                }} 
+                                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-blue-500/25 transition-all active:scale-95 cursor-pointer"
+                                            >
+                                                <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                                                <span>Send Template Email</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Toolbar */}
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between shrink-0">
                 <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
@@ -536,7 +801,16 @@ export const CRM: React.FC<CRMProps> = ({
                                                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-500 border border-slate-200">
                                                         {lead.name.charAt(0)}
                                                     </div>
-                                                    <div className="font-semibold text-slate-900">{lead.name}</div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setViewingLeadDetails(lead);
+                                                            setDetailTab('info');
+                                                        }}
+                                                        className="font-semibold text-slate-900 hover:text-blue-600 hover:underline text-left cursor-pointer"
+                                                        title="View lead profile"
+                                                    >
+                                                        {lead.name}
+                                                    </button>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -576,6 +850,16 @@ export const CRM: React.FC<CRMProps> = ({
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <button 
+                                                        onClick={() => {
+                                                            setViewingLeadDetails(lead);
+                                                            setDetailTab('email');
+                                                        }} 
+                                                        className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                                                        title="Send Email Template"
+                                                    >
+                                                        <EnvelopeIcon className="w-5 h-5" />
+                                                    </button>
                                                     <button onClick={() => openNoteModal(lead)} className={`p-2 rounded-lg transition-colors ${lead.notes ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}><DocumentTextIcon className="w-5 h-5" /></button>
                                                     <button onClick={() => handleDeleteClick(lead.id)} className="text-slate-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"><TrashIcon className="w-5 h-5" /></button>
                                                 </div>
@@ -612,7 +896,16 @@ export const CRM: React.FC<CRMProps> = ({
                                                              {lead.name.charAt(0)}
                                                          </div>
                                                          <div>
-                                                             <h4 className="text-sm font-bold text-slate-900">{lead.name}</h4>
+                                                             <button 
+                                                                 onClick={() => {
+                                                                     setViewingLeadDetails(lead);
+                                                                     setDetailTab('info');
+                                                                 }}
+                                                                 className="text-sm font-bold text-slate-900 hover:text-blue-600 hover:underline text-left cursor-pointer"
+                                                                 title="View lead profile"
+                                                             >
+                                                                 {lead.name}
+                                                             </button>
                                                              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">{lead.type}</p>
                                                          </div>
                                                      </div>
@@ -627,7 +920,19 @@ export const CRM: React.FC<CRMProps> = ({
                                                              👤 {lead.owner || 'Unassigned'}
                                                          </span>
                                                      </div>
-                                                     <button onClick={() => openNoteModal(lead)} className={`text-slate-400 hover:text-blue-600 transition-colors ${lead.notes ? 'text-blue-500' : ''}`}><DocumentTextIcon className="w-4 h-4" /></button>
+                                                     <div className="flex items-center gap-1 shrink-0">
+                                                         <button 
+                                                             onClick={() => {
+                                                                 setViewingLeadDetails(lead);
+                                                                 setDetailTab('email');
+                                                             }} 
+                                                             className="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                                                             title="Send Email Template"
+                                                         >
+                                                             <EnvelopeIcon className="w-4 h-4" />
+                                                         </button>
+                                                         <button onClick={() => openNoteModal(lead)} className={`text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100 transition-colors ${lead.notes ? 'text-blue-500 bg-blue-50' : ''}`}><DocumentTextIcon className="w-4 h-4" /></button>
+                                                     </div>
                                                  </div>
                                              </div>
                                          ))}

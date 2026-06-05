@@ -13,7 +13,7 @@ import { Dashboard } from './components/Dashboard';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
 import { ActivityLog, LogEntry } from './components/ActivityLog';
-import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, Cog6ToothIcon, SparklesIcon, CheckIcon, BellIcon, UserCircleIcon, XMarkIcon, PhotoIcon, TrashIcon, CameraIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, Cog6ToothIcon, SparklesIcon, CheckIcon, BellIcon, UserCircleIcon, XMarkIcon, PhotoIcon, TrashIcon, CameraIcon, HomeIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 
 export interface Property extends PropertyAnalysis {
   id: string;
@@ -82,6 +82,35 @@ const App: React.FC = () => {
   const [agentRole, setAgentRole] = useState('Senior Broker');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Authentication & Mock Login States
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('agent@estateai.com');
+  const [loginPassword, setLoginPassword] = useState('••••••••');
+  const [loginName, setLoginName] = useState('Agent Smith');
+  const [loginRole, setLoginRole] = useState('Senior Broker');
+
+  const handleSignOut = () => {
+      setIsAuthenticated(false);
+      logActivity('system', 'User Authentication', `Broker profile "${agentName}" successfully signed out of EstateAI.`);
+  };
+
+  const handleSignIn = (e: React.FormEvent) => {
+      e.preventDefault();
+      setAgentName(loginName);
+      setAgentRole(loginRole);
+      setIsAuthenticated(true);
+      
+      const newLog: LogEntry = {
+          id: 'log-' + Math.random().toString(36).substring(2, 11),
+          type: 'system',
+          action: 'User Authentication',
+          details: `Successfully authenticated custom profile for "${loginName}" with the role "${loginRole}".`,
+          timestamp: new Date(),
+          user: loginName
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+  };
 
   const logActivity = (type: LogEntry['type'], action: string, details: string) => {
       const newLog: LogEntry = {
@@ -251,6 +280,16 @@ const App: React.FC = () => {
       }));
   };
 
+  const handleRecordCommunication = (id: string, subject: string) => {
+      setLeads(prev => prev.map(lead => {
+          if (lead.id === id) {
+              logActivity('lead', 'Email Template Sent', `Sent template email "${subject}" to "${lead.name}" (${lead.email}).`);
+              return { ...lead, lastContact: new Date() };
+          }
+          return lead;
+      }));
+  };
+
   const handleAddLead = (leadData: Omit<Lead, 'id' | 'lastContact' | 'status' | 'dateAdded'>) => {
       const id = Date.now().toString();
       logActivity('lead', 'Created CRM Prospect', `Added new client lead profile for "${leadData.name}"`);
@@ -332,9 +371,100 @@ const App: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen bg-slate-50 items-center justify-center p-6 relative overflow-hidden font-sans">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -ml-32 -mb-32"></div>
+
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 max-w-md w-full p-10 relative z-10 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 text-white mb-4">
+              <HomeIcon className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none mb-2">
+              Estate<span className="text-blue-600">AI</span>
+            </h1>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">Enterprise ERP Portal</p>
+          </div>
+
+          <form onSubmit={handleSignIn} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Broker Name</label>
+              <input
+                type="text"
+                required
+                value={loginName}
+                onChange={(e) => setLoginName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
+                placeholder="Agent Smith"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Role / Designation</label>
+              <select
+                value={loginRole}
+                onChange={(e) => setLoginRole(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium cursor-pointer"
+              >
+                <option value="Senior Broker">Senior Broker</option>
+                <option value="Associate Agent">Associate Agent</option>
+                <option value="Managing Director">Managing Director</option>
+                <option value="Commercial Advisor">Commercial Advisor</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Workplace Email</label>
+              <input
+                type="email"
+                required
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
+                placeholder="agent@estateai.com"
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">Credentials Code</label>
+                <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md">Passcode Optional</span>
+              </div>
+              <div className="relative">
+                <LockClosedIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4"
+            >
+              Sign In to Environment
+            </button>
+          </form>
+
+          <div className="mt-6 border-t border-slate-100 pt-5 text-center text-[11px] text-slate-400 leading-normal">
+            For evaluation or mock sessions, select any values above to instantly seed your profile context safely.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={handleSignOut} />
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-20 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between px-8 shrink-0 z-30 sticky top-0">
@@ -503,6 +633,7 @@ const App: React.FC = () => {
                     onBulkDelete={handleBulkDelete}
                     onBulkStatusChange={handleBulkStatusChange}
                     onBulkAssignOwner={handleBulkAssignOwner}
+                    onRecordCommunication={handleRecordCommunication}
                     agentName={agentName}
                 />
             )}

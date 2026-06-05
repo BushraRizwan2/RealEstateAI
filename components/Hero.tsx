@@ -8,9 +8,10 @@ import { HomeIcon, BuildingOfficeIcon, ChartBarIcon, UsersIcon, Cog6ToothIcon, A
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onSignOut?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSignOut }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBarIcon },
     { id: 'listings', label: 'Properties', icon: BuildingOfficeIcon },
@@ -51,7 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       </div>
 
       <div className="p-6 border-t border-slate-100">
-        <button className="flex items-center space-x-3 text-slate-500 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition-all px-4 py-3 w-full rounded-xl group">
+        <button 
+          onClick={onSignOut}
+          className="flex items-center space-x-3 text-slate-500 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition-all px-4 py-3 w-full rounded-xl group"
+        >
             <ArrowLeftOnRectangleIcon className="w-5 h-5 text-slate-400 group-hover:text-red-500" />
             <span>Sign Out</span>
         </button>
