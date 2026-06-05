@@ -23,6 +23,7 @@ interface SettingsProps {
     setAgentName: (name: string) => void;
     agentRole: string;
     setAgentRole: (role: string) => void;
+    onLogActivity?: (type: 'property' | 'lead' | 'upload' | 'system' | 'settings', action: string, details: string) => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -31,7 +32,8 @@ export const Settings: React.FC<SettingsProps> = ({
     agentName,
     setAgentName,
     agentRole,
-    setAgentRole
+    setAgentRole,
+    onLogActivity
 }) => {
     const [activeSection, setActiveSection] = useState('general');
     const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +69,9 @@ export const Settings: React.FC<SettingsProps> = ({
         setTimeout(() => {
             setIsLoading(false);
             setShowSuccess(true);
+            if (onLogActivity) {
+                onLogActivity('settings', 'Saved Profile Changes', `Applied settings and configuration updates for executive account: ${agentName} (${agentRole})`);
+            }
             setTimeout(() => setShowSuccess(false), 3000);
         }, 800);
     };

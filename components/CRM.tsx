@@ -48,6 +48,7 @@ interface CRMProps {
     onBulkDelete?: (ids: string[]) => void;
     onBulkStatusChange?: (ids: string[], status: Lead['status']) => void;
     onBulkAssignOwner?: (ids: string[], owner: string) => void;
+    agentName?: string;
 }
 
 export const CRM: React.FC<CRMProps> = ({ 
@@ -57,7 +58,8 @@ export const CRM: React.FC<CRMProps> = ({
     onUpdateNotes,
     onBulkDelete,
     onBulkStatusChange,
-    onBulkAssignOwner
+    onBulkAssignOwner,
+    agentName
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'analytics' | 'kanban'>('list');
     const [searchTerm, setSearchTerm] = useState('');
@@ -84,8 +86,24 @@ export const CRM: React.FC<CRMProps> = ({
         email: '',
         phone: '',
         type: 'Buyer' as Lead['type'],
-        budget: ''
+        budget: '',
+        owner: 'Auto'
     });
+
+    // Compute active workload for each registered agent
+    const activeLeadsByAgent = useMemo(() => {
+        const list = [agentName || 'Agent Smith', 'Jane Doe', 'Alice Vance', 'Bob Miller'];
+        return list.map(agent => {
+            const openCount = leads.filter(l => l.owner === agent && l.status !== 'Closed' && l.status !== 'Lost').length;
+            return { name: agent, openCount };
+        });
+    }, [leads, agentName]);
+
+    const suggestedAgent = useMemo(() => {
+        if (activeLeadsByAgent.length === 0) return null;
+        const sorted = [...activeLeadsByAgent].sort((a, b) => a.openCount - b.openCount);
+        return sorted[0];
+    }, [activeLeadsByAgent]);
 
     const filteredLeads = leads.filter(lead => {
         const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -191,10 +209,35 @@ export const CRM: React.FC<CRMProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onAddLead(formData);
-        sendEmail('admin@estateai.com', 'New Lead Assignment', `A new ${formData.type} lead (${formData.name}) has been added to the system.`);
+        
+        let assignedOwner = formData.owner;
+        let detailsMsg = '';
+        if (assignedOwner === 'Auto') {
+            assignedOwner = suggestedAgent ? suggestedAgent.name : (agentName || 'Agent Smith');
+            detailsMsg = `Auto-assigned based on workload algorithm (${assignedOwner} has the lowest open workload of ${suggestedAgent ? suggestedAgent.openCount : 0} active leads).`;
+        } else {
+            const currentWorkload = leads.filter(l => l.owner === assignedOwner && l.status !== 'Closed' && l.status !== 'Lost').length;
+            detailsMsg = `Manually assigned to ${assignedOwner} (workload: ${currentWorkload} active leads).`;
+        }
+
+        const newLead = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            type: formData.type,
+            budget: formData.budget,
+            owner: assignedOwner,
+            notes: detailsMsg
+        };
+
+        onAddLead(newLead);
+        sendEmail(
+            assignedOwner === (agentName || 'Agent Smith') ? 'admin@estateai.com' : 'agent@estateai.com', 
+            'New Lead Assignment', 
+            `A new ${formData.type} lead (${formData.name}) has been assigned to ${assignedOwner}. ${detailsMsg}`
+        );
         setIsModalOpen(false);
-        setFormData({ name: '', email: '', phone: '', type: 'Buyer', budget: '' });
+        setFormData({ name: '', email: '', phone: '', type: 'Buyer', budget: '', owner: 'Auto' });
     };
 
     const openNoteModal = (lead: Lead) => {
@@ -374,6 +417,28 @@ export const CRM: React.FC<CRMProps> = ({
                                     <input type="text" name="budget" required value={formData.budget} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-all" placeholder="$500k" />
                                 </div>
                             </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Assign Owner (Agent)</label>
+                                <select name="owner" value={formData.owner} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-all font-medium">
+                                    <option value="Auto">✨ Auto-Assign (Suggested Agent)</option>
+                                    {activeLeadsByAgent.map(agent => (
+                                        <option key={agent.name} value={agent.name}>
+                                            {agent.name} ({agent.openCount} active lead{agent.openCount === 1 ? '' : 's'})
+                                        </option>
+                                    ))}
+                                </select>
+                                {formData.owner === 'Auto' && suggestedAgent && (
+                                    <div className="mt-2.5 p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col gap-1 animate-in slide-in-from-top-1 duration-200">
+                                        <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Recommended Agent: <span className="font-bold">{suggestedAgent.name}</span>
+                                        </p>
+                                        <p className="text-[11px] text-emerald-600 leading-normal">
+                                            This agent holds the lowest open workload with only <span className="font-bold">{suggestedAgent.openCount}</span> open lead{suggestedAgent.openCount === 1 ? '' : 's'}. Assigning ensures optimal broker response time.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                             <div className="pt-4 flex gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                                 <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition-all">Add Lead</button>
@@ -458,6 +523,7 @@ export const CRM: React.FC<CRMProps> = ({
                                         <th className="px-6 py-4 font-bold tracking-wider">Type</th>
                                         <th className="px-6 py-4 font-bold tracking-wider">Budget</th>
                                         <th className="px-6 py-4 font-bold tracking-wider">Date Added</th>
+                                        <th className="px-6 py-4 font-bold tracking-wider">Assigned Agent</th>
                                         <th className="px-6 py-4 font-bold tracking-wider">Status</th>
                                         <th className="px-6 py-4 font-bold tracking-wider text-right">Actions</th>
                                     </tr>
@@ -486,6 +552,23 @@ export const CRM: React.FC<CRMProps> = ({
                                             <td className="px-6 py-4"><span className="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-600 border border-slate-200">{lead.type}</span></td>
                                             <td className="px-6 py-4 font-mono text-slate-700 font-medium">{lead.budget}</td>
                                             <td className="px-6 py-4 text-slate-500 font-medium">{new Date(lead.dateAdded).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4">
+                                                <select 
+                                                    value={lead.owner || 'Unassigned'} 
+                                                    onChange={(e) => onBulkAssignOwner?.([lead.id], e.target.value)} 
+                                                    className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-semibold focus:outline-none focus:border-blue-500 cursor-pointer hover:bg-slate-100 transition-colors"
+                                                >
+                                                    <option value="Unassigned">Unassigned</option>
+                                                    {[agentName || 'Agent Smith', 'Jane Doe', 'Alice Vance', 'Bob Miller'].map(name => {
+                                                        const count = leads.filter(l => l.owner === name && l.status !== 'Closed' && l.status !== 'Lost').length;
+                                                        return (
+                                                            <option key={name} value={name}>
+                                                                {name} ({count} active)
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <select value={lead.status} onChange={(e) => handleStatusChange(lead, e.target.value as Lead['status'])} className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${getStatusColor(lead.status)}`}>
                                                     {kanbanColumns.map(s => <option key={s} value={s}>{s}</option>)}
@@ -538,7 +621,12 @@ export const CRM: React.FC<CRMProps> = ({
                                                      <div className="flex justify-between text-xs"><span className="text-slate-500">Budget</span><span className="text-slate-900 font-mono font-medium">{lead.budget}</span></div>
                                                      <div className="flex justify-between text-xs"><span className="text-slate-500">Last Contact</span><span className="text-slate-900">{new Date(lead.lastContact).toLocaleDateString()}</span></div>
                                                  </div>
-                                                 <div className="flex justify-end pt-2 border-t border-slate-100">
+                                                 <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-xs">
+                                                     <div className="flex items-center gap-1.5 text-slate-500 font-semibold select-none">
+                                                         <span className="text-[11px] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1 text-slate-600">
+                                                             👤 {lead.owner || 'Unassigned'}
+                                                         </span>
+                                                     </div>
                                                      <button onClick={() => openNoteModal(lead)} className={`text-slate-400 hover:text-blue-600 transition-colors ${lead.notes ? 'text-blue-500' : ''}`}><DocumentTextIcon className="w-4 h-4" /></button>
                                                  </div>
                                              </div>

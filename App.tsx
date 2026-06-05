@@ -12,6 +12,7 @@ import { CRM, Lead } from './components/CRM';
 import { Dashboard } from './components/Dashboard';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
+import { ActivityLog, LogEntry } from './components/ActivityLog';
 import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, Cog6ToothIcon, SparklesIcon, CheckIcon, BellIcon, UserCircleIcon, XMarkIcon, PhotoIcon, TrashIcon, CameraIcon } from '@heroicons/react/24/outline';
 
 export interface Property extends PropertyAnalysis {
@@ -31,12 +32,68 @@ const App: React.FC = () => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
+  // Activity Logs State
+  const [activityLogs, setActivityLogs] = useState<LogEntry[]>([
+      {
+          id: 'log-1',
+          type: 'upload',
+          action: 'AI Scan: Modern Sunset Villa',
+          details: 'Successfully uploaded photo and parsed description, category, condition, and pricing estimates via Gemini-3.5-Flash model.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 12), // 12 min ago
+          user: 'Agent Smith'
+      },
+      {
+          id: 'log-2',
+          type: 'lead',
+          action: 'Lead Status Changed',
+          details: 'Prospect Sarah Connor was progressed to Negotiation following a property viewing at Sunset Villa.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hrs ago
+          user: 'Agent Smith'
+      },
+      {
+          id: 'log-3',
+          type: 'property',
+          action: 'Created Property Listing',
+          details: 'Suburban Family Home listing was launched live on the portal.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 360), // 6 hrs ago
+          user: 'Agent Smith'
+      },
+      {
+          id: 'log-4',
+          type: 'system',
+          action: 'System Database Seeding',
+          details: 'Loaded default portfolio lists including 6 properties and 4 crm lead profiles into the ERP.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 1440), // 1 day ago
+          user: 'Senior Broker Engine'
+      },
+      {
+          id: 'log-5',
+          type: 'settings',
+          action: 'Profile Photo Configured',
+          details: 'Configured new professional profile avatar under Account Panel preferences.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 2880), // 2 days ago
+          user: 'Agent Smith'
+      }
+  ]);
+
   // User & Profile State
   const [userAvatar, setUserAvatar] = useState<string | null>('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80');
   const [agentName, setAgentName] = useState('Agent Smith');
   const [agentRole, setAgentRole] = useState('Senior Broker');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const logActivity = (type: LogEntry['type'], action: string, details: string) => {
+      const newLog: LogEntry = {
+          id: 'log-' + Math.random().toString(36).substring(2, 11),
+          type,
+          action,
+          details,
+          timestamp: new Date(),
+          user: agentName || 'Agent Smith'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+  };
 
   // Notification State
   const [showNotifications, setShowNotifications] = useState(false);
@@ -158,6 +215,7 @@ const App: React.FC = () => {
                     dateAdded: new Date()
                 };
                 setProperties(prev => [newProperty, ...prev]);
+                logActivity('upload', 'AI Scan Completed', `Successfully uploaded "${file.name}" and generated draft listing: "${analysis.title}"`);
                 setSelectedProperty(newProperty);
                 setIsEditMode(true); 
                 setActiveTab('listings');
@@ -173,16 +231,41 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateLeadStatus = (id: string, status: Lead['status']) => setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, status } : lead));
-  const handleUpdateLeadNotes = (id: string, notes: string) => setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, notes } : lead));
-  const handleAddLead = (leadData: Omit<Lead, 'id' | 'lastContact' | 'status' | 'dateAdded'>) => setLeads(prev => [{ ...leadData, id: Date.now().toString(), status: 'New', lastContact: new Date(), dateAdded: new Date() }, ...prev]);
+  const handleUpdateLeadStatus = (id: string, status: Lead['status']) => {
+      setLeads(prev => prev.map(lead => {
+          if (lead.id === id) {
+              logActivity('lead', 'Lead Status Updated', `Prospect "${lead.name}" status was updated to "${status}"`);
+              return { ...lead, status };
+          }
+          return lead;
+      }));
+  };
+
+  const handleUpdateLeadNotes = (id: string, notes: string) => {
+      setLeads(prev => prev.map(lead => {
+          if (lead.id === id) {
+              logActivity('lead', 'Lead Notes Appended', `Status journal/notes modified for prospect "${lead.name}"`);
+              return { ...lead, notes };
+          }
+          return lead;
+      }));
+  };
+
+  const handleAddLead = (leadData: Omit<Lead, 'id' | 'lastContact' | 'status' | 'dateAdded'>) => {
+      const id = Date.now().toString();
+      logActivity('lead', 'Created CRM Prospect', `Added new client lead profile for "${leadData.name}"`);
+      setLeads(prev => [{ ...leadData, id, status: 'New', lastContact: new Date(), dateAdded: new Date() }, ...prev]);
+  };
+
   const handleUpdateProperty = (updated: Property) => {
       setProperties(prev => {
           const exists = prev.some(p => p.id === updated.id);
+          logActivity('property', exists ? 'Updated Listing Details' : 'Created Manual Listing', `Property listing for "${updated.title}" was ${exists ? 'updated with new details' : 'added live to portal'}`);
           return exists ? prev.map(p => p.id === updated.id ? updated : p) : [updated, ...prev];
       });
       setSelectedProperty(updated);
   };
+
   const handleAddManualProperty = () => {
       const newProperty: Property = { 
           id: Date.now().toString(), 
@@ -197,12 +280,25 @@ const App: React.FC = () => {
           image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800&auto=format&fit=crop', 
           dateAdded: new Date() 
       };
+      logActivity('property', 'Created Listing Draft', 'Started manual entry draft details for a new listing form');
       setSelectedProperty(newProperty);
       setIsEditMode(true); 
   };
-  const handleBulkDelete = (ids: string[]) => setLeads(prev => prev.filter(lead => !ids.includes(lead.id)));
-  const handleBulkStatusChange = (ids: string[], status: Lead['status']) => setLeads(prev => prev.map(lead => ids.includes(lead.id) ? { ...lead, status } : lead));
-  const handleBulkAssignOwner = (ids: string[], owner: string) => setLeads(prev => prev.map(lead => ids.includes(lead.id) ? { ...lead, owner } : lead));
+
+  const handleBulkDelete = (ids: string[]) => {
+      logActivity('lead', 'CRM Bulk Lead Removal', `Purged ${ids.length} selected lead records from the database`);
+      setLeads(prev => prev.filter(lead => !ids.includes(lead.id)));
+  };
+
+  const handleBulkStatusChange = (ids: string[], status: Lead['status']) => {
+      logActivity('lead', 'CRM Bulk Status Update', `Transitioned ${ids.length} leads to status: "${status}"`);
+      setLeads(prev => prev.map(lead => ids.includes(lead.id) ? { ...lead, status } : lead));
+  };
+
+  const handleBulkAssignOwner = (ids: string[], owner: string) => {
+      logActivity('lead', 'CRM Bulk Owner Assignment', `Reassigned stewardship of ${ids.length} leads to "${owner}"`);
+      setLeads(prev => prev.map(lead => ids.includes(lead.id) ? { ...lead, owner } : lead));
+  };
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -407,6 +503,42 @@ const App: React.FC = () => {
                     onBulkDelete={handleBulkDelete}
                     onBulkStatusChange={handleBulkStatusChange}
                     onBulkAssignOwner={handleBulkAssignOwner}
+                    agentName={agentName}
+                />
+            )}
+
+            {activeTab === 'activity_log' && (
+                <ActivityLog 
+                    logs={activityLogs} 
+                    onClearLogs={() => setActivityLogs([])} 
+                    onAddMockActivities={() => {
+                        setActivityLogs([
+                            {
+                                id: 'log-m1',
+                                type: 'upload',
+                                action: 'AI Scan: Beachside Cottage',
+                                details: 'Processed photograph and generated high-converting Seaside Cottage description and amenity flags.',
+                                timestamp: new Date(Date.now() - 1000 * 60 * 45),
+                                user: agentName || 'Agent Smith'
+                            },
+                            {
+                                id: 'log-m2',
+                                type: 'lead',
+                                action: 'Lead Assigned to Agent',
+                                details: 'Assigned high-value lead Tony Stark to agent portfolio.',
+                                timestamp: new Date(Date.now() - 1000 * 60 * 90),
+                                user: 'Senior Broker Engine'
+                            },
+                            {
+                                id: 'log-m3',
+                                type: 'property',
+                                action: 'Listing Price Negotiated',
+                                details: 'Revisted the pricing estimate guidelines for the Downtown Loft Space.',
+                                timestamp: new Date(Date.now() - 1000 * 60 * 180),
+                                user: agentName || 'Agent Smith'
+                            }
+                        ]);
+                    }}
                 />
             )}
 
@@ -418,6 +550,7 @@ const App: React.FC = () => {
                     setAgentName={setAgentName}
                     agentRole={agentRole}
                     setAgentRole={setAgentRole}
+                    onLogActivity={logActivity}
                 />
             )}
         </main>

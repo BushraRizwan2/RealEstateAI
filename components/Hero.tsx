@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { HomeIcon, BuildingOfficeIcon, ChartBarIcon, UsersIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, BuildingOfficeIcon, ChartBarIcon, UsersIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, DocumentChartBarIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
   activeTab: string;
@@ -16,6 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'listings', label: 'Properties', icon: BuildingOfficeIcon },
     { id: 'crm', label: 'CRM', icon: UsersIcon },
     { id: 'reports', label: 'Reports', icon: DocumentChartBarIcon },
+    { id: 'activity_log', label: 'Activity Log', icon: ClockIcon },
     { id: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
 
