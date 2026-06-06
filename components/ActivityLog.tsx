@@ -281,15 +281,15 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({ logs, onClearLogs, onA
                 </div>
 
                 {/* Dropdowns */}
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                        <FunnelIcon className="w-4 h-4 text-slate-400" />
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                    <div className="flex items-center gap-1.5 shrink-0 select-none">
+                        <FunnelIcon className="w-3.5 h-3.5 text-slate-400" />
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Type:</span>
                     </div>
                     <select
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value as any)}
-                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+                        className="flex-1 sm:flex-initial bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:border-blue-500 min-w-0"
                     >
                         <option value="All">All Categories</option>
                         <option value="property">Properties</option>
@@ -302,7 +302,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({ logs, onClearLogs, onA
                     <select
                         value={userFilter}
                         onChange={(e) => setUserFilter(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+                        className="flex-1 sm:flex-initial bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:border-blue-500 min-w-0"
                     >
                         <option value="All">All Operators</option>
                         {usersList.map(u => (

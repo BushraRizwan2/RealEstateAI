@@ -357,20 +357,24 @@ export const Settings: React.FC<SettingsProps> = ({
                     )}
 
                     {/* Footer Actions */}
-                    <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end gap-3">
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap sm:flex-nowrap justify-end gap-3">
                         <button className="px-5 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                         <button 
                             onClick={handleSave}
                             disabled={isLoading}
-                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
+                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 min-w-[44px]"
                         >
                             {isLoading ? (
                                 <>
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    Saving...
+                                    <span className="hidden sm:inline">Saving...</span>
+                                    <span className="inline sm:hidden">...</span>
                                 </>
                             ) : (
-                                'Save Changes'
+                                <>
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Save Changes</span>
+                                </>
                             )}
                         </button>
                     </div>

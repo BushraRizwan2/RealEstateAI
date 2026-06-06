@@ -489,19 +489,21 @@ export const Reports: React.FC<ReportsProps> = ({ properties = [], leads = [] })
                     </div>
                     <button 
                         onClick={handlePDFExport}
-                        className="flex items-center gap-2 px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold transition-all shadow-sm shrink-0"
                         id="btn-export-pdf"
+                        title="Export PDF"
                     >
-                        <DocumentArrowDownIcon className="w-4 h-4 text-blue-600" />
-                        <span>Export PDF</span>
+                        <DocumentArrowDownIcon className="w-5 h-5 text-blue-600" />
+                        <span className="hidden sm:inline">Export PDF</span>
                     </button>
                     <button 
                         onClick={handleCSVExport}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm shrink-0"
                         id="btn-export-csv"
+                        title="Export CSV"
                     >
-                        <ArrowDownTrayIcon className="w-4 h-4" />
-                        <span>Export CSV</span>
+                        <ArrowDownTrayIcon className="w-5 h-5" />
+                        <span className="hidden sm:inline">Export CSV</span>
                     </button>
                 </div>
             </div>

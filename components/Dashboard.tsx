@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { 
     CurrencyDollarIcon, 
     UserGroupIcon, 
@@ -116,16 +117,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex gap-3">
                     <button 
                         onClick={onAddProperty}
-                        className="group flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-500/30 active:scale-95 hover:-translate-y-0.5"
+                        className="group flex items-center justify-center gap-2 px-3 py-2.5 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-500/30 active:scale-95 hover:-translate-y-0.5 shrink-0"
+                        title="New Listing"
                     >
                         <PlusIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                        <span>New Listing</span>
+                        <span className="hidden sm:inline">New Listing</span>
                     </button>
                 </div>
             </div>
 
             {/* Hero Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { 
                         label: 'Active Listings', 
@@ -164,10 +166,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         target: 'reports' 
                     }
                 ].map((stat, idx) => (
-                    <button 
+                    <motion.button 
                         key={stat.label} 
                         onClick={() => onNavigate(stat.target)}
-                        className={`relative group text-left w-full border p-6 rounded-2xl shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ y: -4, scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        transition={{ duration: 0.4, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                        className={`relative group text-left w-full border p-6 rounded-2xl shadow-sm transition-all duration-300 cursor-pointer overflow-hidden
                         ${stat.color === 'blue' ? 'bg-blue-50/80 border-blue-100 hover:bg-blue-50 hover:border-blue-300 hover:shadow-blue-500/20' : ''}
                         ${stat.color === 'purple' ? 'bg-purple-50/80 border-purple-100 hover:bg-purple-50 hover:border-purple-300 hover:shadow-purple-500/20' : ''}
                         ${stat.color === 'emerald' ? 'bg-emerald-50/80 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-300 hover:shadow-emerald-500/20' : ''}
@@ -243,7 +250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 }`}>{stat.sub}</span>
                             )}
                         </div>
-                    </button>
+                    </motion.button>
                 ))}
             </div>
 
@@ -353,11 +360,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide snap-x px-1">
                             {properties.slice(0, 5).map((property, idx) => (
-                                <div 
+                                <motion.div 
                                     key={property.id}
                                     onClick={() => onViewProperty(property)}
-                                    className="min-w-[280px] bg-white border border-slate-100 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-2 transition-all duration-300 snap-start group"
-                                    style={{ animationDelay: `${idx * 100}ms` }}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    whileHover={{ y: -6, scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                    transition={{ duration: 0.4, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                                    className="min-w-[280px] bg-white border border-slate-100 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 snap-start group"
                                 >
                                     <div className="h-44 overflow-hidden relative">
                                         <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors z-10 duration-500" />
@@ -389,7 +400,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             </span>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                             
                             {/* Add New Card */}

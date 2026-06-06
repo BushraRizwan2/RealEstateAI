@@ -84,6 +84,8 @@ interface CRMProps {
     onBulkAssignOwner?: (ids: string[], owner: string) => void;
     onRecordCommunication?: (id: string, subject: string) => void;
     agentName?: string;
+    initialViewingLeadId?: string | null;
+    onClearViewingLead?: () => void;
 }
 
 export const CRM: React.FC<CRMProps> = ({ 
@@ -95,7 +97,9 @@ export const CRM: React.FC<CRMProps> = ({
     onBulkStatusChange,
     onBulkAssignOwner,
     onRecordCommunication,
-    agentName
+    agentName,
+    initialViewingLeadId,
+    onClearViewingLead
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'analytics' | 'kanban'>('list');
     const [searchTerm, setSearchTerm] = useState('');
@@ -113,6 +117,11 @@ export const CRM: React.FC<CRMProps> = ({
     // Delete Confirmation State
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, ids: string[] }>({ show: false, ids: [] });
     
+    const handleCloseLeadDetails = () => {
+        setViewingLeadDetails(null);
+        onClearViewingLead?.();
+    };
+
     // Notification / Email Service State
     const [notification, setNotification] = useState<{show: boolean, title: string, message: string} | null>(null);
 
@@ -183,6 +192,16 @@ export const CRM: React.FC<CRMProps> = ({
             setEmailBody(replacer(template.body));
         }
     }, [selectedTemplateId, viewingLeadDetails, agentName]);
+
+    useEffect(() => {
+        if (initialViewingLeadId) {
+            const matchingLead = leads.find(l => l.id === initialViewingLeadId);
+            if (matchingLead) {
+                setViewingLeadDetails(matchingLead);
+                setDetailTab('info');
+            }
+        }
+    }, [initialViewingLeadId, leads]);
 
     const sendEmail = (to: string, subject: string, body: string) => {
         // Simulate API call to email service with detailed logging
@@ -550,7 +569,7 @@ export const CRM: React.FC<CRMProps> = ({
                                 </div>
                             </div>
                             <button 
-                                onClick={() => setViewingLeadDetails(null)} 
+                                onClick={handleCloseLeadDetails} 
                                 className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
                             >
                                 <XMarkIcon className="w-6 h-6" />
@@ -578,7 +597,7 @@ export const CRM: React.FC<CRMProps> = ({
                             {detailTab === 'info' ? (
                                 <div className="space-y-6">
                                     {/* Profile Info Grid */}
-                                    <div className="grid grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Email Address</label>
                                             <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
@@ -716,7 +735,7 @@ export const CRM: React.FC<CRMProps> = ({
                                                 onClick={() => {
                                                     sendEmail(viewingLeadDetails.email, emailSubject, emailBody);
                                                     onRecordCommunication?.(viewingLeadDetails.id, emailSubject);
-                                                    setViewingLeadDetails(null);
+                                                    handleCloseLeadDetails();
                                                 }} 
                                                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-blue-500/25 transition-all active:scale-95 cursor-pointer"
                                             >
@@ -758,7 +777,7 @@ export const CRM: React.FC<CRMProps> = ({
             {viewMode === 'list' ? (
                 <div className="overflow-auto flex-1 flex flex-col gap-6 pb-4">
                     {/* Stats Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
                         <div className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center gap-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
                             <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center"><UserIcon className="w-6 h-6 text-blue-600" /></div>
                             <div><div className="text-2xl font-bold text-slate-900">{leads.length}</div><div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Leads</div></div>

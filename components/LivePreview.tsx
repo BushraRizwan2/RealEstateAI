@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect } from 'react';
-import { MapPinIcon, HomeIcon, CurrencyDollarIcon, TagIcon, XMarkIcon, CalendarIcon, CheckBadgeIcon, PencilSquareIcon, CheckIcon, PlusIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, HomeIcon, CurrencyDollarIcon, TagIcon, XMarkIcon, CalendarIcon, CheckBadgeIcon, PencilSquareIcon, CheckIcon, PlusIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, PhotoIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'motion/react';
 import { PropertyAnalysis } from '../services/gemini';
 
 // Interface matching the Property type in App.tsx
@@ -23,12 +24,85 @@ interface ListingCardProps {
 
 export const ListingCard: React.FC<ListingCardProps> = ({ data, onClick, onEdit }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div 
+    <motion.div 
         onClick={onClick}
-        className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 group shadow-sm cursor-pointer flex flex-col h-full relative"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        initial={{ opacity: 0, y: 15, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={{ y: -4, scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group shadow-sm cursor-pointer flex flex-col h-full relative"
     >
+      {/* Floating Detail Summary Overlay on Hover */}
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 text-white z-30 flex flex-col justify-between shadow-2xl border border-white/10 pointer-events-none select-none"
+          >
+              <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="text-[10px] uppercase font-mono tracking-widest text-blue-300 font-bold flex items-center gap-1">
+                          <SparklesIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          AI Summary
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                          data.status === 'Active' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                          data.status === 'Pending' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                          'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                      }`}>
+                          {data.status}
+                      </span>
+                  </div>
+                  
+                  <div>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Title</h4>
+                      <p className="text-sm font-bold text-white line-clamp-1">{data.title}</p>
+                  </div>
+
+                  <div>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Price & Class</h4>
+                      <div className="flex items-baseline gap-2">
+                          <span className="text-xl font-black text-blue-400 font-mono">{data.priceEstimate}</span>
+                          <span className="text-[11px] font-medium text-slate-400">({data.type === 'Sale' ? 'For Sale' : 'For Rent'})</span>
+                      </div>
+                  </div>
+
+                  <div>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Key Amenities</h4>
+                      <div className="flex flex-wrap gap-1.5 max-h-[88px] overflow-hidden">
+                          {data.amenities.map((amenity, i) => (
+                              <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-slate-200 border border-white/5 font-medium flex items-center gap-1 whitespace-nowrap">
+                                  <CheckIcon className="w-3 h-3 text-green-400 shrink-0" />
+                                  {amenity}
+                              </span>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <div className="flex items-center gap-1">
+                      <MapPinIcon className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Downtown</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                      <TagIcon className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{data.condition} Condition</span>
+                  </div>
+              </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Image Header */}
       <div className="relative h-56 overflow-hidden bg-slate-100 shrink-0">
         <div className={`absolute inset-0 bg-slate-200 animate-pulse transition-opacity duration-500 ${isLoaded ? 'opacity-0' : 'opacity-100'}`} />
@@ -109,7 +183,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ data, onClick, onEdit 
             </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -187,7 +261,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ proper
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-6xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300 relative border border-slate-200/50">
+            <div className="bg-white w-full max-w-6xl max-h-[90vh] rounded-3xl shadow-2xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300 relative border border-slate-200/50">
                 
                 <button onClick={onClose} className="absolute top-5 right-5 z-40 p-2.5 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors">
                     <XMarkIcon className="w-5 h-5" />

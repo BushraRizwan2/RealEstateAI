@@ -13,7 +13,7 @@ import { Dashboard } from './components/Dashboard';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
 import { ActivityLog, LogEntry } from './components/ActivityLog';
-import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, Cog6ToothIcon, SparklesIcon, CheckIcon, BellIcon, UserCircleIcon, XMarkIcon, PhotoIcon, TrashIcon, CameraIcon, HomeIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, Cog6ToothIcon, SparklesIcon, CheckIcon, BellIcon, UserCircleIcon, XMarkIcon, PhotoIcon, TrashIcon, CameraIcon, HomeIcon, LockClosedIcon, Bars3Icon } from '@heroicons/react/24/outline';
 
 export interface Property extends PropertyAnalysis {
   id: string;
@@ -31,6 +31,13 @@ const App: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'All' | 'Sale' | 'Rent'>('All');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+  const [commandPaletteSearch, setCommandPaletteSearch] = useState('');
+  const [draggedPropertyId, setDraggedPropertyId] = useState<string | null>(null);
+  const [dragOverPropertyId, setDragOverPropertyId] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Activity Logs State
   const [activityLogs, setActivityLogs] = useState<LogEntry[]>([
@@ -82,6 +89,50 @@ const App: React.FC = () => {
   const [agentRole, setAgentRole] = useState('Senior Broker');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const commandPaletteInputRef = useRef<HTMLInputElement>(null);
+
+  // Swipe gesture tracking for mobile view drawer navigation
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+    
+    // Ensure gesture is horizontal and meets threshold (60px)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 60) {
+      if (deltaX > 60) {
+        // Swiped Right - Open the sidebar drawer menu
+        setIsMobileMenuOpen(true);
+      } else if (deltaX < -60) {
+        // Swiped Left - Close the sidebar drawer menu
+        setIsMobileMenuOpen(false);
+      }
+    }
+    
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  useEffect(() => {
+    if (isCommandPaletteOpen) {
+      setTimeout(() => {
+        commandPaletteInputRef.current?.focus();
+      }, 80);
+    } else {
+      setCommandPaletteSearch('');
+    }
+  }, [isCommandPaletteOpen]);
 
   // Authentication & Mock Login States
   const [isAuthenticated, setIsAuthenticated] = useState(true);
@@ -123,6 +174,89 @@ const App: React.FC = () => {
       };
       setActivityLogs(prev => [newLog, ...prev]);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName;
+        const isContentEditable = (activeEl as HTMLElement).isContentEditable;
+        if (
+          tagName === 'INPUT' || 
+          tagName === 'TEXTAREA' || 
+          tagName === 'SELECT' || 
+          isContentEditable
+        ) {
+          if (e.key === 'Escape') {
+            setIsCommandPaletteOpen(false);
+            setIsShortcutsHelpOpen(false);
+            return;
+          }
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            setIsCommandPaletteOpen(prev => !prev);
+          }
+          return;
+        }
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        setIsCommandPaletteOpen(false);
+        setIsShortcutsHelpOpen(false);
+        setSelectedProperty(null);
+        setIsProfileOpen(false);
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'n':
+          e.preventDefault();
+          handleAddManualProperty();
+          setActiveTab('listings');
+          break;
+        case 'd':
+          e.preventDefault();
+          setActiveTab('dashboard');
+          break;
+        case 'p':
+          e.preventDefault();
+          setActiveTab('listings');
+          break;
+        case 'c':
+          e.preventDefault();
+          setActiveTab('crm');
+          break;
+        case 'r':
+          e.preventDefault();
+          setActiveTab('reports');
+          break;
+        case 's':
+          e.preventDefault();
+          setActiveTab('settings');
+          break;
+        case 'a':
+          e.preventDefault();
+          setActiveTab('activity_log');
+          break;
+        case 'h':
+        case '?':
+          e.preventDefault();
+          setIsShortcutsHelpOpen(prev => !prev);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [properties, leads, agentName]);
 
   // Notification State
   const [showNotifications, setShowNotifications] = useState(false);
@@ -305,6 +439,19 @@ const App: React.FC = () => {
       setSelectedProperty(updated);
   };
 
+  const handleReorderProperties = (draggedId: string, targetId: string) => {
+      const draggedIndex = properties.findIndex(p => p.id === draggedId);
+      const targetIndex = properties.findIndex(p => p.id === targetId);
+      if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+
+      const reordered = [...properties];
+      const [draggedItem] = reordered.splice(draggedIndex, 1);
+      reordered.splice(targetIndex, 0, draggedItem);
+      
+      setProperties(reordered);
+      logActivity('property', 'Properties Prioritized', `Broker updated portfolio ordering via drag and drop to highlight "${draggedItem.title}" at the top of the dashboard.`);
+  };
+
   const handleAddManualProperty = () => {
       const newProperty: Property = { 
           id: Date.now().toString(), 
@@ -463,25 +610,59 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={handleSignOut} />
+    <div 
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden relative"
+    >
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onSignOut={handleSignOut} 
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-20 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between px-8 shrink-0 z-30 sticky top-0">
-            <h2 className="text-xl font-bold capitalize text-slate-800 tracking-tight">{activeTab === 'crm' ? 'Lead Management' : activeTab === 'listings' ? 'Property Portfolio' : activeTab}</h2>
-            <div className="flex items-center gap-6">
+        <header className="h-20 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 z-30 sticky top-0 gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+                <button 
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-2 -ml-1 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors md:hidden cursor-pointer shrink-0"
+                    title="Open Navigation Menu"
+                >
+                    <Bars3Icon className="w-6 h-6" />
+                </button>
+                <h2 className="text-lg sm:text-xl font-bold capitalize text-slate-800 tracking-tight truncate">
+                    {activeTab === 'crm' ? 'Lead Management' : activeTab === 'listings' ? 'Property Portfolio' : activeTab === 'activity_log' ? 'Activity Log' : activeTab}
+                </h2>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-6 shrink-0">
                 {activeTab !== 'dashboard' && activeTab !== 'reports' && activeTab !== 'settings' && (
                     <div className="relative group">
                         <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" />
                         <input 
                             type="text" 
-                            placeholder="Search..." 
+                            placeholder="Filter active tab..." 
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="bg-slate-100/50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-64 transition-all focus:bg-white focus:shadow-sm"
                         />
                     </div>
                 )}
+                
+                <button 
+                    onClick={() => setIsCommandPaletteOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-all border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer shadow-xs group"
+                    title="Open Command Search Palette (⌘K or Ctrl+K)"
+                >
+                    <MagnifyingGlassIcon className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                    <span className="hidden sm:inline">Search / Commands</span>
+                    <span className="bg-white border border-slate-300 text-[10px] text-slate-400 font-mono px-1.5 py-0.5 rounded-md shadow-2xs flex items-center gap-0.5 font-bold">
+                        <span>⌘</span>K
+                    </span>
+                </button>
+
                 <div className="h-6 w-px bg-slate-200"></div>
                 
                 {/* Notifications */}
@@ -549,7 +730,7 @@ const App: React.FC = () => {
             </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 scroll-smooth relative z-0">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 scroll-smooth relative z-0">
             {activeTab === 'dashboard' && (
                 <Dashboard 
                     properties={properties} 
@@ -582,6 +763,9 @@ const App: React.FC = () => {
                                         <CheckIcon className="w-3.5 h-3.5"/> {feat}
                                     </span>
                                 ))}
+                                <span className="flex items-center gap-2 text-xs font-bold text-blue-100 bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 shadow-inner animate-pulse">
+                                    👋 Drag & drop listings below to reorder priority
+                                </span>
                             </div>
                         </div>
                         <div className="w-full md:w-1/2 lg:w-5/12 relative z-10 h-64 bg-white/10 backdrop-blur-sm rounded-2xl p-2 border border-white/20">
@@ -611,15 +795,66 @@ const App: React.FC = () => {
                      </div>
 
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {filteredProperties.map((property) => (
-                            <div key={property.id} className="h-[420px]">
-                                <ListingCard 
-                                    data={property} 
-                                    onClick={() => { setSelectedProperty(property); setIsEditMode(false); }}
-                                    onEdit={() => { setSelectedProperty(property); setIsEditMode(true); }}
-                                />
-                            </div>
-                        ))}
+                        {filteredProperties.map((property) => {
+                            const isDragged = property.id === draggedPropertyId;
+                            const isDragOver = property.id === dragOverPropertyId;
+                            return (
+                                <div 
+                                    key={property.id} 
+                                    draggable
+                                    onDragStart={(e) => {
+                                        setDraggedPropertyId(property.id);
+                                        e.dataTransfer.effectAllowed = "move";
+                                        e.dataTransfer.setData("text/plain", property.id);
+                                    }}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (draggedPropertyId !== property.id) {
+                                            setDragOverPropertyId(property.id);
+                                        }
+                                    }}
+                                    onDragEnter={(e) => {
+                                        e.preventDefault();
+                                        if (draggedPropertyId !== property.id) {
+                                            setDragOverPropertyId(property.id);
+                                        }
+                                    }}
+                                    onDragLeave={() => {
+                                        if (dragOverPropertyId === property.id) {
+                                            setDragOverPropertyId(null);
+                                        }
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        const draggedId = e.dataTransfer.getData("text/plain") || draggedPropertyId;
+                                        if (draggedId && draggedId !== property.id) {
+                                            handleReorderProperties(draggedId, property.id);
+                                        }
+                                        setDraggedPropertyId(null);
+                                        setDragOverPropertyId(null);
+                                    }}
+                                    onDragEnd={() => {
+                                        setDraggedPropertyId(null);
+                                        setDragOverPropertyId(null);
+                                    }}
+                                    className={`h-[420px] transition-all duration-300 relative group cursor-grab active:cursor-grabbing ${
+                                        isDragged ? 'opacity-40 scale-95 duration-150 rotate-1' : ''
+                                    } ${
+                                        isDragOver ? 'border-2 border-dashed border-blue-500 bg-blue-50/10 rounded-2xl p-1 scale-102 ring-4 ring-blue-500/10 transition-all duration-150 shadow-md translate-y-[-4px]' : ''
+                                    }`}
+                                >
+                                    {/* Drag Gripper Floating Indicator on Hover */}
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 -mt-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur text-white py-1 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1 z-30 shadow-md pointer-events-none tracking-wide">
+                                        <span>⋮⋮</span> Drag to Prioritize
+                                    </div>
+                                    <ListingCard 
+                                        data={property} 
+                                        onClick={() => { setSelectedProperty(property); setIsEditMode(false); }}
+                                        onEdit={() => { setSelectedProperty(property); setIsEditMode(true); }}
+                                    />
+                                </div>
+                            );
+                        })}
                      </div>
                 </div>
             )}
@@ -635,6 +870,8 @@ const App: React.FC = () => {
                     onBulkAssignOwner={handleBulkAssignOwner}
                     onRecordCommunication={handleRecordCommunication}
                     agentName={agentName}
+                    initialViewingLeadId={selectedLeadId}
+                    onClearViewingLead={() => setSelectedLeadId(null)}
                 />
             )}
 
@@ -746,6 +983,306 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Global Command Palette Search Modal */}
+        {isCommandPaletteOpen && (
+             <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 md:p-12 bg-slate-900/60 backdrop-blur-sm pt-[8vh] animate-in fade-in duration-150">
+                 <div className="fixed inset-0" onClick={() => setIsCommandPaletteOpen(false)}></div>
+                 <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[500px] animate-in slide-in-from-top-4 duration-200 relative z-10 font-sans">
+                     
+                     {/* Search bar row */}
+                     <div className="p-4 border-b border-slate-100 flex items-center gap-3 shrink-0">
+                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 shrink-0" />
+                         <input 
+                             type="text" 
+                             ref={commandPaletteInputRef}
+                             placeholder="Search listings, CRM leads, views, or settings..." 
+                             value={commandPaletteSearch}
+                             onChange={(e) => setCommandPaletteSearch(e.target.value)}
+                             className="w-full text-base font-semibold text-slate-900 bg-transparent placeholder-slate-400 focus:outline-none focus:ring-0"
+                         />
+                         <button 
+                             onClick={() => setIsCommandPaletteOpen(false)}
+                             className="text-xs font-bold text-slate-400 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                         >
+                             ESC
+                         </button>
+                     </div>
+
+                     {/* Scrollable Results content */}
+                     <div className="flex-1 overflow-y-auto p-4 space-y-5 min-h-0 bg-slate-50/10">
+                         {commandPaletteSearch.trim() === '' ? (
+                             <>
+                                 {/* Navigation Shortcuts */}
+                                 <div>
+                                     <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Jump to View</h3>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100">
+                                         {[
+                                             { key: 'D', label: '📊 Executive Dashboard', tab: 'dashboard' },
+                                             { key: 'P', label: '🏠 Property Portfolio', tab: 'listings' },
+                                             { key: 'C', label: '👥 Lead Management (CRM)', tab: 'crm' },
+                                             { key: 'R', label: '📈 Reports & Analytics', tab: 'reports' },
+                                             { key: 'S', label: '⚙️ Settings & Account', tab: 'settings' },
+                                             { key: 'A', label: '📜 Activity Logs Panel', tab: 'activity_log' },
+                                         ].map(item => (
+                                             <button 
+                                                 key={item.key}
+                                                 onClick={() => {
+                                                     setActiveTab(item.tab);
+                                                     setIsCommandPaletteOpen(false);
+                                                 }}
+                                                 className="w-full text-left p-2.5 rounded-lg hover:bg-white hover:shadow-2xs border border-transparent hover:border-slate-100 transition-all flex items-center justify-between group cursor-pointer text-xs font-bold text-slate-750 hover:text-blue-600"
+                                             >
+                                                 <span>{item.label}</span>
+                                                 <span className="bg-slate-200/60 group-hover:bg-blue-50 text-slate-500 group-hover:text-blue-600 border border-slate-200/40 rounded-md font-mono text-[10px] px-1.5 py-0.5 font-bold transition-colors shadow-3xs">{item.key}</span>
+                                             </button>
+                                         ))}
+                                     </div>
+                                 </div>
+
+                                 {/* Quick Actions */}
+                                 <div>
+                                     <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Instant Action Commands</h3>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100">
+                                         <button 
+                                             onClick={() => {
+                                                 handleAddManualProperty();
+                                                 setActiveTab('listings');
+                                                 setIsCommandPaletteOpen(false);
+                                             }}
+                                             className="w-full text-left p-2.5 rounded-lg hover:bg-white hover:shadow-2xs border border-transparent hover:border-slate-100 transition-all flex items-center justify-between group cursor-pointer text-xs font-bold text-slate-750 hover:text-blue-600"
+                                         >
+                                             <span>➕ Create Manual Property Listing</span>
+                                             <span className="bg-slate-200/60 group-hover:bg-blue-50 text-slate-500 group-hover:text-blue-600 border border-slate-200/40 rounded-md font-mono text-[10px] px-1.5 py-0.5 font-bold transition-colors shadow-3xs">N</span>
+                                         </button>
+                                         <button 
+                                             onClick={() => {
+                                                 setIsShortcutsHelpOpen(true);
+                                                 setIsCommandPaletteOpen(false);
+                                             }}
+                                             className="w-full text-left p-2.5 rounded-lg hover:bg-white hover:shadow-2xs border border-transparent hover:border-slate-100 transition-all flex items-center justify-between group cursor-pointer text-xs font-bold text-slate-750 hover:text-blue-600"
+                                         >
+                                             <span>❓ Open Keyboard Shortcuts Guide</span>
+                                             <span className="bg-slate-200/60 group-hover:bg-blue-50 text-slate-500 group-hover:text-blue-600 border border-slate-200/40 rounded-md font-mono text-[10px] px-1.5 py-0.5 font-bold transition-colors shadow-3xs">H</span>
+                                         </button>
+                                     </div>
+                                 </div>
+                             </>
+                         ) : (() => {
+                             const searchLower = commandPaletteSearch.toLowerCase().trim();
+                             
+                             // Search properties
+                             const matchedProps = properties.filter(p => 
+                                 p.title.toLowerCase().includes(searchLower) || 
+                                 p.category.toLowerCase().includes(searchLower) ||
+                                 p.description.toLowerCase().includes(searchLower)
+                             );
+
+                             // Search leads
+                             const matchedLeads = leads.filter(l => 
+                                 l.name.toLowerCase().includes(searchLower) || 
+                                 l.email.toLowerCase().includes(searchLower) ||
+                                 (l.notes && l.notes.toLowerCase().includes(searchLower))
+                             );
+
+                             // Search navigation tabs
+                             const matchedTabs = [
+                                 { name: '📊 Dashboard Index', keywords: 'dashboard stats graphs charts analytics log logs', tab: 'dashboard' },
+                                 { name: '🏠 Property listings Portfolio', keywords: 'properties rentals listings house apartment buy rent sales values pricing uploader upload', tab: 'listings' },
+                                 { name: '👥 CRM Lead Management', keywords: 'prospects contacts customers pipeline deals leads buyers sellers renter template emails', tab: 'crm' },
+                                 { name: '📈 Financial Reports & Projections', keywords: 'charts reports analytics forecasting revenue projections commissions broker listings', tab: 'reports' },
+                                 { name: '⚙️ Settings Configuration', keywords: 'settings configure account edit username agent broker role user avatar password profile logout', tab: 'settings' },
+                                 { name: '📜 Full Activity Logs File', keywords: 'activity raw audit log trace event events logbook history database seed', tab: 'activity_log' },
+                             ].filter(t => t.name.toLowerCase().includes(searchLower) || t.keywords.includes(searchLower));
+
+                             const hasResults = matchedProps.length > 0 || matchedLeads.length > 0 || matchedTabs.length > 0;
+
+                             if (!hasResults) {
+                                 return (
+                                     <div className="p-8 text-center text-slate-400 text-sm font-medium">
+                                         No matching properties, CRM leads, or views found.
+                                     </div>
+                                 );
+                             }
+
+                             return (
+                                 <div className="space-y-4">
+                                     {/* Navigation matches */}
+                                     {matchedTabs.length > 0 && (
+                                         <div>
+                                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Matched Views</h4>
+                                             <div className="space-y-1">
+                                                 {matchedTabs.map(item => (
+                                                     <button 
+                                                         key={item.tab}
+                                                         onClick={() => {
+                                                             setActiveTab(item.tab);
+                                                             setIsCommandPaletteOpen(false);
+                                                         }}
+                                                         className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer flex justify-between items-center"
+                                                     >
+                                                         <span>{item.name}</span>
+                                                         <span className="text-[10px] text-slate-450 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">navigate</span>
+                                                     </button>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+
+                                     {/* Property matches */}
+                                     {matchedProps.length > 0 && (
+                                         <div>
+                                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Matching Properties ({matchedProps.length})</h4>
+                                             <div className="space-y-1">
+                                                 {matchedProps.map(prop => (
+                                                     <button 
+                                                         key={prop.id}
+                                                         onClick={() => {
+                                                             setSelectedProperty(prop);
+                                                             setIsEditMode(false);
+                                                             setActiveTab('listings');
+                                                             setIsCommandPaletteOpen(false);
+                                                         }}
+                                                         className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer flex justify-between items-center"
+                                                     >
+                                                         <div className="flex items-center gap-2">
+                                                             <img src={prop.image} className="w-6 h-6 object-cover rounded-md border border-slate-200" referrerPolicy="no-referrer" />
+                                                             <span>{prop.title}</span>
+                                                         </div>
+                                                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-mono font-bold">{prop.priceEstimate}</span>
+                                                     </button>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+
+                                     {/* Lead matches */}
+                                     {matchedLeads.length > 0 && (
+                                         <div>
+                                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Matching CRM Leads ({matchedLeads.length})</h4>
+                                             <div className="space-y-1">
+                                                 {matchedLeads.map(lead => (
+                                                     <button 
+                                                         key={lead.id}
+                                                         onClick={() => {
+                                                             setSelectedLeadId(lead.id);
+                                                             setActiveTab('crm');
+                                                             setIsCommandPaletteOpen(false);
+                                                         }}
+                                                         className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer flex justify-between items-center"
+                                                     >
+                                                         <div className="flex flex-col">
+                                                             <span className="font-bold text-slate-900">{lead.name}</span>
+                                                             <span className="text-[10px] text-slate-400 font-medium">{lead.email}</span>
+                                                         </div>
+                                                         <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-bold">{lead.status}</span>
+                                                     </button>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+                             );
+                         })()}
+                     </div>
+
+                     {/* Footer with helpful controls info */}
+                     <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-semibold shrink-0">
+                         <div className="flex items-center gap-1.5">
+                             <span>Type keywords or search lists</span>
+                             <span>•</span>
+                             <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-3xs font-mono font-bold text-slate-550">ESC</span> to Exit
+                         </div>
+                         <div className="flex gap-4">
+                             <div><strong>D, P, C, R, S, A</strong> navigate</div>
+                             <div><strong>N</strong> manual new listing</div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        )}
+
+        {/* Global Keyboard Shortcuts Cheat Sheet modal */}
+        {isShortcutsHelpOpen && (
+             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+                 <div className="fixed inset-0" onClick={() => setIsShortcutsHelpOpen(false)}></div>
+                 <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 relative z-10 font-sans p-6 text-slate-900">
+                     <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                         <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
+                             <span>⌨️ Keyboard Shortcuts Guide</span>
+                         </h3>
+                         <button 
+                             onClick={() => setIsShortcutsHelpOpen(false)}
+                             className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors cursor-pointer"
+                         >
+                             <XMarkIcon className="w-5 h-5" />
+                         </button>
+                     </div>
+
+                     <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+                         <div>
+                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Global Searches</h4>
+                             <div className="space-y-2">
+                                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                                     <span>Command Search Palette</span>
+                                     <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-mono text-[10px] shadow-3xs font-bold font-mono">⌘ + K / Ctrl + K</span>
+                                 </div>
+                             </div>
+                         </div>
+
+                         <div className="border-t border-slate-100 pt-3">
+                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Jump to Tab View</h4>
+                             <div className="space-y-2">
+                                 {[
+                                     { key: 'D', label: 'Executive Dashboard' },
+                                     { key: 'P', label: 'Property Portfolio' },
+                                     { key: 'C', label: 'Lead Management (CRM)' },
+                                     { key: 'R', label: 'Reports & Analytics' },
+                                     { key: 'S', label: 'Settings & Profiles' },
+                                     { key: 'A', label: 'Activity Logs' },
+                                 ].map(item => (
+                                     <div key={item.key} className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                                         <span>{item.label}</span>
+                                         <span className="bg-slate-100 border border-slate-200 w-6 h-6 flex items-center justify-center rounded font-mono text-[10px] shadow-3xs font-bold font-mono uppercase">{item.key}</span>
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+
+                         <div className="border-t border-slate-100 pt-3">
+                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Portfolio Actions</h4>
+                             <div className="space-y-2">
+                                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                                     <span>Create Manual Listing</span>
+                                     <span className="bg-slate-100 border border-slate-200 w-6 h-6 flex items-center justify-center rounded font-mono text-[10px] shadow-3xs font-bold font-mono uppercase">N</span>
+                                 </div>
+                             </div>
+                         </div>
+
+                         <div className="border-t border-slate-100 pt-3">
+                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">General Utilities</h4>
+                             <div className="space-y-2">
+                                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                                     <span>Help Guides / Legend</span>
+                                     <span className="bg-slate-100 border border-slate-200 w-6 h-6 flex items-center justify-center rounded font-mono text-[10px] shadow-3xs font-bold font-mono">? / H</span>
+                                 </div>
+                                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                                     <span>Close Active Modal</span>
+                                     <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-mono text-[10px] shadow-3xs font-bold font-mono">ESC</span>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+
+                     <button 
+                         onClick={() => setIsShortcutsHelpOpen(false)}
+                         className="w-full mt-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                     >
+                         Got it, dismiss
+                     </button>
+                 </div>
+             </div>
         )}
       </div>
     </div>
